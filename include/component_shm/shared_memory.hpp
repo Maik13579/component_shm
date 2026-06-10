@@ -1,3 +1,6 @@
+// Copyright 2026 Maik Knof
+// SPDX-License-Identifier: Apache-2.0
+
 #ifndef COMPONENT_SHM__SHARED_MEMORY_HPP_
 #define COMPONENT_SHM__SHARED_MEMORY_HPP_
 
