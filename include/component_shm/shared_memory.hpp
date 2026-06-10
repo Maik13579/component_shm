@@ -18,11 +18,14 @@
 namespace component_shm
 {
 
+/// @brief Thread-safe, type-erased data registry for ROS 2 components in one process.
 class SharedMemory
 {
 public:
+  /// @brief Return the process-global shared registry instance.
   static std::shared_ptr<SharedMemory> instance();
 
+  /// @brief Store value under key, replacing any existing entry at that key.
   template<typename T>
   void set(const std::string & key, T value)
   {
@@ -36,6 +39,7 @@ public:
         std::type_index(typeid(StoredType))});
   }
 
+  /// @brief Store a non-null shared object under key while preserving shared ownership.
   template<typename T>
   void setShared(const std::string & key, std::shared_ptr<T> value)
   {
@@ -51,6 +55,7 @@ public:
       Entry{std::static_pointer_cast<void>(value), std::type_index(typeid(StoredType))});
   }
 
+  /// @brief Get the value stored under key, throwing for missing keys or type mismatches.
   template<typename T>
   std::shared_ptr<T> get(const std::string & key) const
   {
@@ -67,6 +72,7 @@ public:
     return std::static_pointer_cast<T>(it->second.data);
   }
 
+  /// @brief Get the value stored under key, or nullptr for missing keys or type mismatches.
   template<typename T>
   std::shared_ptr<T> tryGet(const std::string & key) const
   {
@@ -80,8 +86,10 @@ public:
     return std::static_pointer_cast<T>(it->second.data);
   }
 
+  /// @brief Return true if any entry exists at key.
   bool contains(const std::string & key) const;
 
+  /// @brief Return true if key exists and the stored type exactly matches T.
   template<typename T>
   bool containsTyped(const std::string & key) const
   {
@@ -92,10 +100,14 @@ public:
     return it != storage_.end() && it->second.type == std::type_index(typeid(StoredType));
   }
 
+  /// @brief Remove key if it exists.
   void remove(const std::string & key);
+
+  /// @brief Remove every entry from the registry.
   void clear();
 
 private:
+  /// @brief Type-erased storage plus runtime type metadata used for checked casts.
   struct Entry
   {
     std::shared_ptr<void> data;

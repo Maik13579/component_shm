@@ -29,6 +29,25 @@ auto status = shm->get<std::string>("status");
 caller in the process. Reads use `std::shared_lock<std::shared_mutex>` and
 writes use `std::unique_lock<std::shared_mutex>`.
 
+## API overview
+
+`SharedMemory` owns the process-global key-value registry.
+
+- `SharedMemory::instance()` returns the process-local registry.
+- `set<T>(key, value)` stores a value with type metadata.
+- `setShared<T>(key, value)` stores an existing non-null `std::shared_ptr<T>`.
+- `get<T>(key)` returns `std::shared_ptr<T>` and throws when the key is missing
+  or the stored type does not match.
+- `tryGet<T>(key)` returns `nullptr` instead of throwing for missing keys or
+  type mismatches.
+- `contains(key)` checks whether any value exists for the key.
+- `containsTyped<T>(key)` checks whether the key exists with exactly type `T`.
+- `remove(key)` erases one key.
+- `clear()` erases all registry entries.
+
+Stored values are type-erased internally. Public access remains typed, so a
+value stored as `int` must be retrieved as `int`.
+
 ## ShmView remapping
 
 `component_shm::ShmView` adds per-component key remapping:
@@ -56,6 +75,10 @@ auto cloud = view.get<pcl::PointCloud<pcl::PointXYZ>>("input_cloud");
 Remappings are local to the view. Different components can resolve the same
 local key to different global keys while sharing the same `SharedMemory`
 instance.
+
+`ShmView` exposes `set<T>()`, `setShared<T>()`, `get<T>()`, `tryGet<T>()`,
+`contains()`, `containsTyped<T>()`, and `remove()`. Each function resolves the
+local key first and then delegates to the underlying `SharedMemory`.
 
 ## Thread safety
 
