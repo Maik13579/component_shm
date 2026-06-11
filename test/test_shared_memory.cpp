@@ -93,6 +93,11 @@ TEST_F(SharedMemoryTest, remove_deletes_key)
   EXPECT_FALSE(shm_->contains("value"));
 }
 
+TEST_F(SharedMemoryTest, remove_missing_key_does_not_throw)
+{
+  EXPECT_NO_THROW(shm_->remove("missing"));
+}
+
 TEST_F(SharedMemoryTest, clear_deletes_all_keys)
 {
   shm_->set<int>("a", 1);
@@ -102,6 +107,11 @@ TEST_F(SharedMemoryTest, clear_deletes_all_keys)
 
   EXPECT_FALSE(shm_->contains("a"));
   EXPECT_FALSE(shm_->contains("b"));
+}
+
+TEST_F(SharedMemoryTest, clear_empty_registry_does_not_throw)
+{
+  EXPECT_NO_THROW(shm_->clear());
 }
 
 TEST_F(SharedMemoryTest, set_shared_preserves_ownership)
@@ -118,6 +128,64 @@ TEST_F(SharedMemoryTest, set_shared_preserves_ownership)
 TEST_F(SharedMemoryTest, set_shared_rejects_nullptr)
 {
   EXPECT_THROW(shm_->setShared<int>("null", nullptr), std::invalid_argument);
+}
+
+TEST_F(SharedMemoryTest, set_and_set_shared_overwrite_each_other)
+{
+  shm_->set<int>("value", 1);
+  auto shared = std::make_shared<int>(2);
+
+  shm_->setShared("value", shared);
+
+  EXPECT_EQ(shm_->get<int>("value"), shared);
+
+  shm_->set<int>("value", 3);
+
+  EXPECT_NE(shm_->get<int>("value"), shared);
+  EXPECT_EQ(*shm_->get<int>("value"), 3);
+}
+
+TEST_F(SharedMemoryTest, cv_qualified_requests_match_stored_type)
+{
+  shm_->set<int>("value", 7);
+
+  const auto value = shm_->get<const int>("value");
+
+  ASSERT_NE(value, nullptr);
+  EXPECT_EQ(*value, 7);
+  EXPECT_TRUE(shm_->containsTyped<const int>("value"));
+  EXPECT_NE(shm_->tryGet<const int>("value"), nullptr);
+}
+
+TEST_F(SharedMemoryTest, mutations_through_returned_pointer_are_visible)
+{
+  shm_->set<std::vector<int>>("numbers", std::vector<int>{1, 2});
+
+  auto first = shm_->get<std::vector<int>>("numbers");
+  first->push_back(3);
+
+  const auto second = shm_->get<std::vector<int>>("numbers");
+  ASSERT_EQ(second->size(), 3U);
+  EXPECT_EQ(second->at(2), 3);
+}
+
+TEST_F(SharedMemoryTest, returned_pointer_remains_valid_after_remove_and_clear)
+{
+  shm_->set<std::string>("removed", "still alive");
+  auto removed = shm_->get<std::string>("removed");
+
+  shm_->remove("removed");
+
+  EXPECT_FALSE(shm_->contains("removed"));
+  EXPECT_EQ(*removed, "still alive");
+
+  shm_->set<std::string>("cleared", "also alive");
+  auto cleared = shm_->get<std::string>("cleared");
+
+  shm_->clear();
+
+  EXPECT_FALSE(shm_->contains("cleared"));
+  EXPECT_EQ(*cleared, "also alive");
 }
 
 TEST_F(SharedMemoryTest, multiple_readers_single_writer)

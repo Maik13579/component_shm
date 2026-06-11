@@ -3,10 +3,13 @@
 
 #include <gtest/gtest.h>
 
+#include <atomic>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include "component_shm/shm_view.hpp"
 
@@ -109,12 +112,47 @@ TEST_F(ShmViewTest, get_remappings_returns_copy)
   EXPECT_EQ(view_->get_remappings().at("output"), "perception/filtered");
 }
 
+TEST_F(ShmViewTest, set_remappings_empty_clears_existing_remappings)
+{
+  view_->set_remappings(
+    std::unordered_map<std::string, std::string>{
+      {"input", "slam/global"},
+      {"output", "perception/filtered"}});
+
+  view_->set_remappings({});
+
+  EXPECT_TRUE(view_->get_remappings().empty());
+  EXPECT_EQ(view_->resolveKey("input"), "input");
+  EXPECT_EQ(view_->resolveKey("output"), "output");
+}
+
 TEST_F(ShmViewTest, view_contains_uses_remapping)
 {
   shm_->set<int>("global", 4);
   view_->addRemapping("local", "global");
 
   EXPECT_TRUE(view_->contains("local"));
+}
+
+TEST_F(ShmViewTest, view_contains_typed_uses_remapping)
+{
+  shm_->set<int>("global", 4);
+  view_->addRemapping("local", "global");
+
+  EXPECT_TRUE(view_->containsTyped<int>("local"));
+  EXPECT_FALSE(view_->containsTyped<double>("local"));
+}
+
+TEST_F(ShmViewTest, view_try_get_uses_remapping)
+{
+  shm_->set<int>("global", 4);
+  view_->addRemapping("local", "global");
+
+  const auto value = view_->tryGet<int>("local");
+
+  ASSERT_NE(value, nullptr);
+  EXPECT_EQ(*value, 4);
+  EXPECT_EQ(view_->tryGet<double>("local"), nullptr);
 }
 
 TEST_F(ShmViewTest, view_remove_uses_remapping)
@@ -135,6 +173,42 @@ TEST_F(ShmViewTest, set_shared_uses_resolved_key)
   view_->setShared("local", value);
 
   EXPECT_EQ(shm_->get<std::string>("global"), value);
+}
+
+TEST_F(ShmViewTest, get_remappings_is_safe_while_set_remappings_runs)
+{
+  constexpr int iterations = 1000;
+  constexpr int reader_count = 4;
+  std::atomic<bool> valid_access{true};
+
+  std::thread writer([&]() {
+    for (int i = 0; i < iterations; ++i) {
+      view_->set_remappings(
+        std::unordered_map<std::string, std::string>{
+          {"input", "global_" + std::to_string(i)},
+          {"output", "filtered_" + std::to_string(i)}});
+    }
+  });
+
+  std::vector<std::thread> readers;
+  readers.reserve(reader_count);
+  for (int i = 0; i < reader_count; ++i) {
+    readers.emplace_back([&]() {
+      for (int read = 0; read < iterations; ++read) {
+        const auto remappings = view_->get_remappings();
+        if (!remappings.empty() && remappings.size() != 2U) {
+          valid_access.store(false);
+        }
+      }
+    });
+  }
+
+  writer.join();
+  for (auto & reader : readers) {
+    reader.join();
+  }
+
+  EXPECT_TRUE(valid_access.load());
 }
 
 TEST(ShmViewConstructionTest, rejects_null_shared_memory)
