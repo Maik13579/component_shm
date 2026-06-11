@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 
 #include "component_shm/shm_view.hpp"
 
@@ -76,6 +77,36 @@ TEST_F(ShmViewTest, remove_remapping_restores_original_key)
 
   EXPECT_FALSE(view_->hasRemapping("key"));
   EXPECT_EQ(view_->resolveKey("key"), "key");
+}
+
+TEST_F(ShmViewTest, set_remappings_replaces_existing_remappings)
+{
+  view_->addRemapping("old", "old/global");
+
+  view_->set_remappings(
+    std::unordered_map<std::string, std::string>{
+      {"input", "slam/global"},
+      {"output", "perception/filtered"}});
+
+  EXPECT_FALSE(view_->hasRemapping("old"));
+  EXPECT_EQ(view_->resolveKey("old"), "old");
+  EXPECT_EQ(view_->resolveKey("input"), "slam/global");
+  EXPECT_EQ(view_->resolveKey("output"), "perception/filtered");
+}
+
+TEST_F(ShmViewTest, get_remappings_returns_copy)
+{
+  view_->set_remappings(
+    std::unordered_map<std::string, std::string>{
+      {"input", "slam/global"},
+      {"output", "perception/filtered"}});
+
+  auto remappings = view_->get_remappings();
+  remappings["input"] = "changed";
+
+  EXPECT_EQ(remappings.size(), 2U);
+  EXPECT_EQ(view_->resolveKey("input"), "slam/global");
+  EXPECT_EQ(view_->get_remappings().at("output"), "perception/filtered");
 }
 
 TEST_F(ShmViewTest, view_contains_uses_remapping)

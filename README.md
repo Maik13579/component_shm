@@ -79,6 +79,9 @@ instance.
 `ShmView` exposes `set<T>()`, `setShared<T>()`, `get<T>()`, `tryGet<T>()`,
 `contains()`, `containsTyped<T>()`, and `remove()`. Each function resolves the
 local key first and then delegates to the underlying `SharedMemory`.
+`set_remappings()` replaces the full local remapping table, and
+`get_remappings()` returns a copy for logging, inspection, or reuse by external
+configuration loaders.
 
 ## Thread safety
 

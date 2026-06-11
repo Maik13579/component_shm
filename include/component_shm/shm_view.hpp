@@ -29,6 +29,12 @@ public:
   /// @brief Remove a remapping if it exists.
   void removeRemapping(const std::string & from);
 
+  /// @brief Replace all remappings for this view.
+  void set_remappings(std::unordered_map<std::string, std::string> remappings);
+
+  /// @brief Return a copy of all remappings configured for this view.
+  std::unordered_map<std::string, std::string> get_remappings() const;
+
   /// @brief Return true if key has a local remapping in this view.
   bool hasRemapping(const std::string & key) const;
 

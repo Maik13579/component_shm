@@ -28,6 +28,18 @@ void ShmView::removeRemapping(const std::string & from)
   remappings_.erase(from);
 }
 
+void ShmView::set_remappings(std::unordered_map<std::string, std::string> remappings)
+{
+  std::unique_lock<std::shared_mutex> lock(remapping_mutex_);
+  remappings_ = std::move(remappings);
+}
+
+std::unordered_map<std::string, std::string> ShmView::get_remappings() const
+{
+  std::shared_lock<std::shared_mutex> lock(remapping_mutex_);
+  return remappings_;
+}
+
 bool ShmView::hasRemapping(const std::string & key) const
 {
   std::shared_lock<std::shared_mutex> lock(remapping_mutex_);
