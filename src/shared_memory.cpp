@@ -8,7 +8,15 @@ namespace component_shm
 
 std::shared_ptr<SharedMemory> SharedMemory::instance()
 {
-  static std::shared_ptr<SharedMemory> instance{new SharedMemory()};
+  static std::weak_ptr<SharedMemory> weak_instance;
+  static std::mutex instance_mutex;
+
+  std::lock_guard<std::mutex> lock(instance_mutex);
+  auto instance = weak_instance.lock();
+  if (!instance) {
+    instance = std::make_shared<SharedMemory>();
+    weak_instance = instance;
+  }
   return instance;
 }
 

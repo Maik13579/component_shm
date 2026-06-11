@@ -269,4 +269,21 @@ TEST(SharedMemorySingletonTest, instance_returns_process_global_registry)
   first->clear();
 }
 
+TEST(SharedMemorySingletonTest, instance_releases_registry_after_last_owner)
+{
+  std::weak_ptr<component_shm::SharedMemory> weak;
+  {
+    const auto first = component_shm::SharedMemory::instance();
+    first->clear();
+    first->set<int>("temporary", 42);
+    weak = first;
+  }
+
+  EXPECT_TRUE(weak.expired());
+
+  const auto second = component_shm::SharedMemory::instance();
+  EXPECT_FALSE(second->contains("temporary"));
+  second->clear();
+}
+
 }  // namespace
